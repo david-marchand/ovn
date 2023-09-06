@@ -20,6 +20,7 @@ RUN apt update -y \
         iputils-ping \
         isc-dhcp-server \
         kmod \
+        libbpf0 \
         libelf-dev \
         libjemalloc2 \
         libjemalloc-dev \

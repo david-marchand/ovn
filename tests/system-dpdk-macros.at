@@ -28,9 +28,6 @@ m4_define([OVS_DPDK_PRE_CHECK],
    AT_CHECK([grep 'hugetlbfs' stdout], [], [stdout], [])
 ])
 
-m4_define([SYSTEM_DPDK_ALLOWED_LOGS],[
-])
-
 # OVS_TRAFFIC_VSWITCHD_START([vsctl-args], [vsctl-output], [=override])
 #
 # Creates a database and starts ovsdb-server, starts ovs-vswitchd
@@ -72,29 +69,23 @@ $1";/EAL: No \(available\|free\) .*hugepages reported/d
 /dpif(revalidator.*)|WARN|netdev@ovs-netdev: failed to.*proto=2.*/d
 /dpif_netdev(revalidator.*)|ERR|internal error parsing flow key.*proto=2.*/d
 /dpif_netlink.*Generic Netlink family 'ovs_datapath' does not exist. The Open vSwitch kernel module is probably not loaded./d
-/eth_dev_tap_create():  Disabling rte flow support: No such file or directory/d
-/eth_dev_tap_create(): .*: failed to create multiq qdisc./d
-/netdev_linux.*obtaining netdev stats via vport failed/d
-/qdisc_create_multiq(): Could not add multiq qdisc (2): No such file or directory/d
-/tap_mp_req_on_rxtx(): Failed to send start req to secondary/d
-/tap_nl_dump_ext_ack(): Specified qdisc kind is unknown/d"])
+/netdev_linux.*obtaining netdev stats via vport failed/d"])
    AT_CHECK([:; $2])
 ])
 
 # ADD_VETH([port], [namespace], [ovs-br], [ip_addr] [mac_addr], [gateway],
 #          [ip_addr_flags] [ip6_addr] [gateway6])
 #
-# Fake a veth by creating a tap on kernel side and plug it in OVS using the
-# net/tap DPDK driver.
-#
+# Plug a veth by into OVS via DPDK net/af_xdp.
 m4_define([ADD_VETH],
-  [AT_CHECK([ovs-vsctl add-port $3 ovs-$1 -- \
-             set interface ovs-$1 external-ids:iface-id="$1" -- \
-             set interface ovs-$1 type=dpdk -- \
-             set interface ovs-$1 options:n_rxq=2 -- \
-             set interface ovs-$1 options:dpdk-devargs=net_tap$1,iface=$1])
-   OVS_WAIT_UNTIL([ip link show dev $1 | grep -qw LOWER_UP])
+  [AT_CHECK([ip link add $1 type veth peer name ovs-$1 || return 77])
+   CONFIGURE_VETH_OFFLOADS([$1])
    AT_CHECK([ip link set $1 netns $2])
+   AT_CHECK([ip link set dev ovs-$1 up])
+   AT_CHECK([ovs-vsctl add-port $3 ovs-$1 -- \
+            set interface ovs-$1 external-ids:iface-id="$1" -- \
+            set interface ovs-$1 type=dpdk -- \
+            set interface ovs-$1 options:dpdk-devargs=net_af_xdp$1,iface=ovs-$1])
    NS_CHECK_EXEC([$2], [ip addr add $4 dev $1 $7])
    NS_CHECK_EXEC([$2], [ip link set dev $1 up])
    if test -n "$5"; then
@@ -110,4 +101,10 @@ m4_define([ADD_VETH],
    if test -n "$9"; then
      NS_CHECK_EXEC([$2], [ip route add default via $9])
    fi
+   on_exit 'ip link del ovs-$1'
+])
+
+m4_define([CONFIGURE_VETH_OFFLOADS],
+  [AT_CHECK([ethtool -K $1 tx off], [0], [ignore], [ignore])
+   AT_CHECK([ethtool -K $1 txvlan off], [0], [ignore], [ignore])
 ])

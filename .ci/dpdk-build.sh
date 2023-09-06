@@ -35,9 +35,11 @@ function build_dpdk()
     DPDK_OPTS="$DPDK_OPTS -Ddeveloper_mode=disabled"
 
     # OVS compilation and the "ovn-system-dpdk" unit tests (run in the CI)
-    # only depend on virtio/tap drivers.
-    # We can disable all remaining drivers to save compilation time.
-    DPDK_OPTS="$DPDK_OPTS -Denable_drivers=net/null,net/tap,net/virtio"
+    # only depend on virtio/af_xdp drivers.
+    # We can disable all applications, and remaining drivers to save
+    # compilation time.
+    DPDK_OPTS="$DPDK_OPTS -Ddisable_apps=*"
+    DPDK_OPTS="$DPDK_OPTS -Denable_drivers=net/null,net/af_xdp,net/virtio"
 
     # Install DPDK using prefix.
     DPDK_OPTS="$DPDK_OPTS --prefix=$(pwd)/build"

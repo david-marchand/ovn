@@ -24,6 +24,7 @@ RUN dnf -y update \
         jemalloc-devel \
         kernel-devel \
         kmod \
+        libbpf \
         libcap-ng-devel \
         libtool \
         net-tools \
